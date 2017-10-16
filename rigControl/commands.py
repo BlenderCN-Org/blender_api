@@ -268,6 +268,10 @@ class EvaAPI(RigAPI):
 
         return shapekeys
 
+    def getArmsData(self):
+        angles = OrderedDict()
+        # TODO more
+        return angles
 
     def setNeckRotation(self, pitch, roll):
         bpy.evaAnimationManager.deformObj.pose.bones['DEF-neck'].rotation_euler = Euler((pitch, 0, roll))

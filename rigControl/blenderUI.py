@@ -135,6 +135,7 @@ class BLRigControl(bpy.types.Panel):
         col.operator('eva.debug', text='getNeckData()').action = 'commands.EvaAPI().getNeckData()'
         col.operator('eva.debug', text='getEyesData()').action = 'commands.EvaAPI().getEyesData()'
         col.operator('eva.debug', text='getFaceData()').action = 'commands.EvaAPI().getFaceData()'
+        col.operator('eva.debug', text='getArmsData()').action = 'commands.EvaAPI().getArmsData()'
 
 class BLActuatorControl(bpy.types.Panel):
     bl_label = "Actuator Control"
