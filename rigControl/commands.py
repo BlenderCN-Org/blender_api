@@ -127,6 +127,10 @@ class EvaAPI(RigAPI):
         bpy.evaAnimationManager.setEmotion(eval(emotion))
         return 0
 
+    def setEmotionValue(self, emotion):
+        # TODO: expand arguments and update doc
+        bpy.evaAnimationManager.setEmotionValue(eval(emotion))
+        return 0
 
     # Gestures --------------------------------------
     # blinking, nodding, shaking...

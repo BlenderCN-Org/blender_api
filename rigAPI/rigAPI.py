@@ -47,6 +47,9 @@ class RigAPI:
     def setEmotionState(self, emotion):
         return None
 
+    def setEmotionValue(self, emotion):
+        return None
+
     # Gestures --------------------------------------
     # blinking, nodding, shaking...
     def availableGestures(self):
