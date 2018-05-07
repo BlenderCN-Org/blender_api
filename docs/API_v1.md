@@ -110,6 +110,15 @@ Returns 0 if success, else returns the error code.
 
 ---
 
+`setEmotionValue(emotion)`
+
+Sets the indicated emotion to the value indicated. The emotion is a triple, consisting of the emotion name, the strength of the expression, and a duration field that is unused. The name should be one of the values returned by `availableemotionStates()`.
+
+Returns 0 if success, else returns the error code.
+
+---
+
+
 `availableGestures()`
 
 Returns a list of the available gestures in string format.
@@ -201,4 +210,3 @@ the head.
 Returns 0 if success, else returns the error code.
 
 ---
-

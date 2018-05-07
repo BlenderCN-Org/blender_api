@@ -34,7 +34,7 @@ class AnimationManager():
         self.cyclesSet = set()
         # Cycles to remove
         self.cyclesToRemove = []
-        # Start from normal animation mode. 
+        # Start from normal animation mode.
         self.mode= 0
         self.old_mode= 0
         self.deleted_drivers = False
@@ -317,6 +317,17 @@ class AnimationManager():
                         num.add_keyframe(target=0.0, transition=[
                              (0, Pipes.linear(fade)), (1, Pipes.moving_average(0.2))])
                         emotion.magnitude = num
+
+
+    def setEmotionValue(self, emotionDict):
+        '''Set the emotional state of the character directly.'''
+        for emotionName, data in emotionDict.items():
+            try:
+                control = self.bones['EMO-'+emotionName]
+                control['intensity'] = data['magnitude']
+            except KeyError:
+                logger.error('Cannot set emotion. No bone with name {}'.format(emotionName))
+                 continue
 
 
     def newViseme(self, vis, duration=0.5, rampInRatio=0.1, rampOutRatio=0.8, startTime=0):
