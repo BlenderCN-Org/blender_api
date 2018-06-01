@@ -9,7 +9,7 @@ motors = rospy.get_param('/{}/motors'.format(ROBOT))
 expressions = rospy.get_param('/{}/expressions'.format(ROBOT))
 animations = rospy.get_param('/{}/animations'.format(ROBOT))
 
-from pau2motors.msg import pau
+from hr_msgs.msg import pau
 from pau2motors import ShapekeyStore
 rp = RosPack()
 config_root = rp.get_path('robots_config')
@@ -199,7 +199,7 @@ def importAnimations(animations):
         try:
             for f in frames:
                 current_frame += f['frames']
-                # Reset PAU
+                # Reset AU
                 m = getPauFromMotors(f['motors'])
                 kf = getKeyFrameFromPAU(m)
                 for bone, val in kf.items():

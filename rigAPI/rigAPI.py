@@ -9,6 +9,13 @@ class RigAPI:
 
     def isAlive(self):
         return None
+
+    def getArmsAnimationMode(self):
+        return None
+
+    def setArmsAnimationMode(self,arms_mode=0):
+        return None
+
     # Codes to enable faceshift to blendshape mapping
     def getAnimationMode(self):
         return None
@@ -64,6 +71,19 @@ class RigAPI:
     def stopGesture(self, gestureID, smoothing):
         return None
 
+    # Arm animations --------------------------------------
+    def availableArmAnimations(self):
+        return None
+
+    def getArmAnimations(self):
+        return None
+
+    def setArmAnimation(self, name, repeat=1, speed=1, magnitude=0.5):
+        return None
+
+    def stopArmAnimation(self, gestureID, smoothing):
+        return None
+
     # Visemes --------------------------------------
     def availableVisemes(self):
         return None
@@ -77,7 +97,7 @@ class RigAPI:
     # coordinates: 'x' is forward, 'y' to the left, and 'z' up.
     # Distances are measured in meters.  Origin of the coordinate
     # system is somewhere (where?) in the middle of the head.
-    # Speed uses a moving average over period of time.
+    # Speed is added for more control. Uses moving average over period of time
     def setFaceTarget(self, location, speed=1.0):
         return None
 
@@ -118,6 +138,9 @@ class RigAPI:
     def getFaceData(self):
         return None
 
+    def getArmsData(self):
+        return None
+
     # Set the lower neck rotation
     # Accepts pitch and roll as parameters for the neck
     def setNeckRotation(self, pitch, roll):
@@ -130,4 +153,7 @@ class RigAPI:
         return None
 
     def getAnimationLength(self, animation):
+        return None
+
+    def getArmAnimationLength(self, animation):
         return None

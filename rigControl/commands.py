@@ -4,7 +4,7 @@ from mathutils import Matrix, Euler
 from math import pi
 from collections import OrderedDict
 import logging
-
+import math
 from rigAPI.rigAPI import RigAPI
 
 logger = logging.getLogger('hr.blender_api.rigcontrol.commands')
@@ -21,17 +21,75 @@ def terminate():
     return 0
 
 
+def rad2deg(x):
+    return (x * 180.0) / 3.1415927
+
+def clamp(x,min,max):
+    result = x
+    if result < min:
+        result = min
+    if result > max:
+        result = max
+    return result
+
+def get_local_matrix(b):
+    rest = b.bone.matrix_local.copy()
+    rest_inv = rest.inverted()
+    if b.parent:
+        par_mat = b.parent.matrix.copy()
+        par_inv = par_mat.inverted()
+        par_rest = b.parent.bone.matrix_local.copy()
+    else:
+        par_mat = Matrix()
+        par_inv = Matrix()
+        par_rest = Matrix()
+    return rest_inv * (par_rest * (par_inv * b.matrix))
+
 class EvaAPI(RigAPI):
     PAU_HEAD_YAW = 1
     PAU_HEAD_PITCH = 2
     PAU_HEAD_ROLL = 4
     PAU_EYE_TARGET = 8
     PAU_FACE = 16
-    # Flag which determines if currently PAU messages are being transmitted
+    PAU_ARMS = 32
+    # Flag which determines if currenjtly PAU messages are being transmitted
     PAU_ACTIVE = 128
     PAU_ACTIVE_TIMEOUT = 0.5
 
+    ARM_ROTATIONS = {
+        'R_Shoulder_Pitch'  : 'Shoulder_R:0',
+        'R_Shoulder_Roll'   : 'Shoulder_R:2',
+        'R_Shoulder_Yaw'    : 'Arm_Twist_R:1',
+        'R_Elbow'           : 'Elbow_R:0',
+        'R_Wrist_Yaw'       : 'Forearm_Twist_R:1',
+
+        'R_Wrist_Roll'      : 'Wrist_R:2',
+        'R_Index_Finger'    : 'Index_Fing_Base_R:0',
+        'R_Middle_Finger'   : 'Mid_Base_R:0',
+        'R_Ring_Finger'     : 'Ring_Base_R:0',
+        'R_Pinky_Finger'    : 'Pinky_Base_R:0',
+        'R_Thumb_Finger'    : 'Thumb_Base_R:0',
+        'R_Thumb_Roll'      : 'Thumb_Pivot_R:1',
+        'R_Spreading'       : 'Thumb_Pivot_R:0',
+
+        'L_Shoulder_Pitch'  : 'Shoulder_L:0',
+        'L_Shoulder_Roll'   : 'Shoulder_L:2',
+        'L_Shoulder_Yaw'    : 'Arm_Twist_L:1',
+        'L_Elbow'           : 'Elbow_L:0',
+        'L_Wrist_Yaw'       : 'Forearm_Twist_L:1',
+
+        'L_Wrist_Roll'      : 'Wrist_L:2',
+        'L_Index_Finger'    : 'Index_Fing_Base_L:0',
+        'L_Middle_Finger'   : 'Mid_Base_L:0',
+        'L_Ring_Finger'     : 'Ring_Base_L:0',
+        'L_Pinky_Finger'    : 'Pinky_Base_L:0',
+        'L_Thumb_Finger'    : 'Thumb_Base_L:0',
+        'L_Thumb_Roll'      : 'Thumb_Pivot_L:1',
+        'L_Spreading'       : 'Thumb_Pivot_L:0',
+    }
+
     def __init__(self):
+        self.armsAnimationMode = 0 # start sitting
         # Current animation mode (combined by addition)
         # 0 - Face eyes and head controlled by animations
         # 1 - head yaw controlled by PAU
@@ -39,6 +97,7 @@ class EvaAPI(RigAPI):
         # 4 - head roll controlled by PAU
         # 8 - Eye Target controlled by PAU
         # 16 - Face shapekeys controlled by PAU
+        # 32 - Arms controlled by PAU
         self.pauAnimationMode = 0
         # If 1 current shapekeys are controlled directly by PAU, otherwise by default drivers
         self.shapekeysControl = 0
@@ -51,7 +110,17 @@ class EvaAPI(RigAPI):
         return 4
 
     def isAlive(self):
-        return int(bpy.context.scene['animationPlaybackActive'])
+        return int(bpy.data['animationPlaybackActive'])
+
+    def setArmsMode(self,arms_animation_mode):
+        self.armsAnimationMode = arms_animation_mode
+        bpy.evaAnimationManager.setArmsMode(self.armsAnimationMode)
+        return True
+
+    def getArmsMode(self):
+        return self.armsAnimationMode
+
+
     # Faceshift to ROS mapping functions
     def getAnimationMode(self):
 
@@ -132,6 +201,7 @@ class EvaAPI(RigAPI):
         bpy.evaAnimationManager.setEmotionValue(eval(emotion))
         return 0
 
+
     # Gestures --------------------------------------
     # blinking, nodding, shaking...
     def availableGestures(self):
@@ -161,6 +231,37 @@ class EvaAPI(RigAPI):
 
 
     def stopGesture(self, gestureID, smoothing):
+        ## TODO
+        return 0
+
+    # Arm animations --------------------------------------
+    def availableArmAnimations(self):
+        armAnimations = []
+        for armanimation in bpy.data.actions:
+            if armanimation.name.startswith("ARM-"):
+                armAnimations.append(armanimation.name[4:])
+        return armAnimations
+
+
+    def getArmAnimations(self):
+        eva = bpy.evaAnimationManager
+        armAnimations = {}
+        for armanimation in eva.armAnimationsList:
+            duration = round(armanimation.duration*armanimation.repeat - armanimation.stripRef.strip_time, 3)
+            magnitude = round(armanimation.magnitude, 3)
+            speed = round(armanimation.speed, 3)
+            armAnimations[armanimation.name] = {'duration': duration, \
+                'magnitude': magnitude, 'speed': speed}
+        return armAnimations
+
+
+    def setArmAnimation(self, name, repeat=1, speed=1, magnitude=1.0):
+        bpy.evaAnimationManager.newArmAnimation(name='ARM-'+name, \
+            repeat=repeat, speed=speed, magnitude=magnitude)
+        return 0
+
+
+    def stopArmAnimation(self, gestureID, smoothing):
         ## TODO
         return 0
 
@@ -272,6 +373,72 @@ class EvaAPI(RigAPI):
 
         return shapekeys
 
+    def get_arm_joints(self, joint):
+        (rot,key) = self.ARM_ROTATIONS[joint].split(':')
+        bones = bpy.evaAnimationManager.skeleton.pose.bones
+        return bones[rot].rotation_euler[int(key)]
+
+    def set_arm_joint(self, joint, angle):
+        (rot,key) = self.ARM_ROTATIONS[joint].split(':')
+        bones = bpy.evaAnimationManager.skeleton.pose.bones
+        bones[rot].rotation_euler[int(key)] = math.radians(angle)
+
+    def getArmsData(self):
+        if not bpy.evaAnimationManager.arms_enabled:
+            return {}
+        angles = OrderedDict()
+        angles['R_Shoulder_Pitch'] = rad2deg(self.get_arm_joints('R_Shoulder_Roll'))
+        angles['R_Shoulder_Roll'] = rad2deg(self.get_arm_joints('R_Shoulder_Roll'))
+        angles['R_Shoulder_Yaw'] = rad2deg(self.get_arm_joints('R_Shoulder_Yaw'))
+        angles['R_Elbow'] = rad2deg(self.get_arm_joints('R_Elbow'))
+        angles['R_Wrist_Yaw'] = rad2deg(self.get_arm_joints('R_Wrist_Yaw'))
+
+        angles['R_Wrist_Roll'] = rad2deg(self.get_arm_joints('R_Wrist_Roll'))
+        angles['R_Index_Finger'] = rad2deg(self.get_arm_joints('R_Index_Finger'))
+        angles['R_Middle_Finger'] = rad2deg(self.get_arm_joints('R_Middle_Finger'))
+        angles['R_Ring_Finger'] = rad2deg(self.get_arm_joints('R_Ring_Finger'))
+        angles['R_Pinky_Finger'] = rad2deg(self.get_arm_joints('R_Pinky_Finger'))
+        angles['R_Thumb_Finger'] = rad2deg(self.get_arm_joints('R_Thumb_Finger'))
+        angles['R_Thumb_Roll'] = rad2deg(self.get_arm_joints('R_Thumb_Roll'))
+        angles['R_Spreading'] = rad2deg(self.get_arm_joints('R_Spreading'))
+
+        angles['L_Shoulder_Pitch'] = rad2deg(self.get_arm_joints('L_Shoulder_Pitch'))
+        angles['L_Shoulder_Roll'] = rad2deg(self.get_arm_joints('L_Shoulder_Roll'))
+        angles['L_Shoulder_Yaw'] = rad2deg(self.get_arm_joints('L_Shoulder_Yaw'))
+        angles['L_Elbow'] = rad2deg(self.get_arm_joints('L_Elbow'))
+        angles['L_Wrist_Yaw'] = rad2deg(self.get_arm_joints('L_Wrist_Yaw'))
+
+        angles['L_Wrist_Roll'] = rad2deg(self.get_arm_joints('L_Wrist_Roll'))
+        angles['L_Index_Finger'] = rad2deg(self.get_arm_joints('L_Index_Finger'))
+        angles['L_Middle_Finger'] = rad2deg(self.get_arm_joints('L_Middle_Finger'))
+        angles['L_Ring_Finger'] = rad2deg(self.get_arm_joints('L_Ring_Finger'))
+        angles['L_Pinky_Finger'] = rad2deg(self.get_arm_joints('L_Pinky_Finger'))
+        angles['L_Thumb_Finger'] = rad2deg(self.get_arm_joints('L_Thumb_Finger'))
+        angles['L_Thumb_Roll'] = rad2deg(self.get_arm_joints('L_Thumb_Roll'))
+        angles['L_Spreading'] = rad2deg(self.get_arm_joints('L_Spreading'))
+
+        # Exceptions for sitting mode
+        if bpy.evaAnimationManager.armsAnimationMode == 0:  # sitting (safe)
+            angles['R_Shoulder_Pitch'] = clamp(-20.0 + 70.0 * (rad2deg(self.get_arm_joints('R_Shoulder_Pitch')) / 90.0),
+                                               -90.0, -20.0)
+            angles['R_Shoulder_Roll'] = clamp(45.0 * (rad2deg(self.get_arm_joints('R_Shoulder_Roll')) / 90.0), 0.0, 45.0)
+            angles['R_Shoulder_Yaw'] = clamp(-10.0 + 25.0 * (rad2deg(self.get_arm_joints('R_Shoulder_Yaw')) / 45.0),
+                                             -35.0, 15.0)
+            angles['R_Elbow'] = clamp(50.0 + 60.0 * (rad2deg(self.get_arm_joints('R_Elbow')) / 90.0),
+                                      50.0, 110.0)
+
+            angles['L_Shoulder_Pitch'] = clamp(-20.0 + 70.0 * (rad2deg(self.get_arm_joints('L_Shoulder_Pitch')) / 90.0), -90.0,
+                                               -20.0)
+            angles['L_Shoulder_Roll'] = clamp(45.0 * (rad2deg(self.get_arm_joints('L_Shoulder_Roll')) / 90.0), -45.0, 0.0)
+            angles['L_Shoulder_Yaw'] = clamp(10.0 + 25.0 * (rad2deg(self.get_arm_joints('L_Shoulder_Yaw')) / 45.0), -15.0,
+                                             35.0)
+            angles['L_Elbow'] = clamp(50.0 + 60.0 * (rad2deg(self.get_arm_joints('L_Elbow')) / 90.0), 50.0, 110.0)
+
+        return angles
+
+    def setArmsJoints(self, joints):
+        for k,v in joints.items():
+            self.set_arm_joint(k,v)
 
     def setNeckRotation(self, pitch, roll):
         bpy.evaAnimationManager.deformObj.pose.bones['DEF-neck'].rotation_euler = Euler((pitch, 0, roll))
@@ -302,6 +469,15 @@ class EvaAPI(RigAPI):
             frame_range = bpy.data.actions[animation].frame_range
             frames = 1+frame_range[1]-frame_range[0]
             return frames / bpy.context.scene.render.fps
+
+    def getArmAnimationLength(self, animation):
+        animation = "ARM-"+animation
+        if not animation in bpy.data.actions.keys():
+            return 0
+        else:
+            frame_range = bpy.data.actions[animation].frame_range
+            frames = 1+frame_range[1]-frame_range[0]
+            return (frames * 2) / bpy.context.scene.render.fps
 
     def getCurrentFrame(self):
         if bpy.context.object.animation_data.action is not None:

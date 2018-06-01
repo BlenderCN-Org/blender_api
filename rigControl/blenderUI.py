@@ -6,6 +6,7 @@
 
 import bpy
 
+
 class BLRigConsole(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "RigConsole"
@@ -42,6 +43,10 @@ class BLRigControl(bpy.types.Panel):
         col = layout.column(align=True)
         col.operator("wm.command_listener", text=text, icon='CONSOLE')
         col.operator('eva.debug', text='Start Animation', icon='ARMATURE_DATA').action = 'commands.init()'
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.operator('eva.debug', text='Sitting (safe)').action='commands.EvaAPI().setArmsMode(0)'
+        row.operator('eva.debug', text='Standing').action='commands.EvaAPI().setArmsMode(1)'
 
         # speech
         col = layout.column(align=True)
@@ -69,6 +74,18 @@ class BLRigControl(bpy.types.Panel):
 
                 # row.operator("eva.gestures", text=action.name[4:]).evaAction = action.name
                 row.operator('eva.debug', text=action.name[4:]).action = 'commands.EvaAPI().setGesture("'+ action.name[4:] +'")'
+
+        ### Arm animations ###
+        col = layout.column(align=True)
+        col.label(text="Arm Animations:")
+        row = col.row(align=True)
+        for i, action in enumerate(bpy.data.actions):
+            if "ARM" in action.name:
+                if i%2 == 0:
+                    row = col.row(align=True)
+
+                # row.operator("eva.gestures", text=action.name[4:]).evaAction = action.name
+                row.operator('eva.debug', text=action.name[4:]).action = 'commands.EvaAPI().setArmAnimation("'+ action.name[4:] +'")'
 
         ###  Emotions  ###
         row = layout.row()
@@ -129,12 +146,40 @@ class BLRigControl(bpy.types.Panel):
         col.operator('eva.debug', text='isAlive()').action = 'commands.EvaAPI().isAlive()'
         col.operator('eva.debug', text='availableEmotionStates()').action = 'commands.EvaAPI().availableEmotionStates()'
         col.operator('eva.debug', text='availableGestures()').action = 'commands.EvaAPI().availableGestures()'
+        col.operator('eva.debug', text='availableArmAnimations()').action = 'commands.EvaAPI().availableArmAnimations()'
         col.operator('eva.debug', text='getEmotionStates()').action = 'commands.EvaAPI().getEmotionStates()'
         col.operator('eva.debug', text='getGestures()').action = 'commands.EvaAPI().getGestures()'
         col.operator('eva.debug', text='getHeadData()').action = 'commands.EvaAPI().getHeadData()'
         col.operator('eva.debug', text='getNeckData()').action = 'commands.EvaAPI().getNeckData()'
         col.operator('eva.debug', text='getEyesData()').action = 'commands.EvaAPI().getEyesData()'
         col.operator('eva.debug', text='getFaceData()').action = 'commands.EvaAPI().getFaceData()'
+        col.operator('eva.debug', text='getArmsData()').action = 'commands.EvaAPI().getArmsData()'
+
+class BLAnimationLibrary(bpy.types.Panel):
+    """Creates a Panel in the Object properties window"""
+    bl_label = "Animation Library"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+
+        col = layout.column(align=True)
+        col.label(text="Gestures")
+        row = col.row(align=True)
+        row.operator('eva.debug', )
+        row = col.row(align=True)
+        row.operator('eva.debug', text='Append').action = ''
+        row.operator('eva.debug', text='Remove').action = ''
+
+        col = layout.column(align=True)
+        col.label(text="Arm Animations")
+        row = col.row(align=True)
+        row.operator('eva.debug', text='Append').action = ''
+        row.operator('eva.debug', text='Remove').action = ''
+
 
 class BLActuatorControl(bpy.types.Panel):
     bl_label = "Actuator Control"
@@ -182,11 +227,13 @@ def register():
     bpy.utils.register_class(BLRigControl)
     bpy.utils.register_class(BLRigConsole)
     bpy.utils.register_class(BLActuatorControl)
+    bpy.utils.register_class(BLAnimationLibrary)
 
 def unregister():
     bpy.utils.unregister_class(BLRigControl)
     bpy.utils.unregister_class(BLRigConsole)
     bpy.utils.unregister_class(BLActuatorControl)
+    bpy.utils.unregister_class(BLAnimationLibrary)
 
 def refresh():
     try:

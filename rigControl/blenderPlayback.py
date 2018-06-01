@@ -105,6 +105,7 @@ class BLPlayback(bpy.types.Operator):
         if event.type == 'TIMER':
 
             eva = bpy.evaAnimationManager
+
             # compute fps
             context.scene['evaFPS'] = fps = self.computeFPS(context)
             timeScale = framerateHz/fps
@@ -123,6 +124,7 @@ class BLPlayback(bpy.types.Operator):
                 headLoc = eva.headTargetLoc.target
                 headLoc[0] = -normalX * 0.2
                 headLoc[2] = normalY * 0.2
+
             # update NLA based gestures
             eva.removeCycles()
             gestures = eva.gesturesList[:]  	# prevent in-situ removal while iterating bug
@@ -137,6 +139,32 @@ class BLPlayback(bpy.types.Operator):
                         gesture.strip_time_kfp.co[1] = 0
                     else:
                         eva._deleteGesture(gesture)
+
+            # update NLA based arm animations
+            armanimations = eva.armAnimationsList[:]
+            # keep track if to delete the last anaimation that controls the neutral position of arms
+            keep_last_animation = True
+            last_animation = None
+            for armanimation in armanimations:                
+                # Leave strrip time for backward compatible with blender with version lower 2.75
+                armanimation.stripRef.strip_time += armanimation.speed * timeScale
+                armanimation.strip_time_kfp.co[1] += armanimation.speed * timeScale
+                if armanimation.stripRef.strip_time > armanimation.duration:
+                    if armanimation.repeat > 1:
+                        armanimation.repeat -= 1
+                        armanimation.stripRef.strip_time = 0
+                        armanimation.strip_time_kfp.co[1] = 0
+                    else:
+                        if armanimation.blend_type == 'REPLACE' and not last_animation:
+                            last_animation = armanimation
+                        else:
+                            eva._deleteArmAnimation(armanimation)
+                else:
+                    if armanimation.blend_type == 'REPLACE':
+                        keep_last_animation = False
+            if last_animation and not keep_last_animation:
+                eva._deleteArmAnimation(last_animation)
+
             # update visemes
             visemes = eva.visemesList[:]
             for viseme in visemes:
@@ -211,11 +239,13 @@ class BLPlayback(bpy.types.Operator):
                     for gesture in eva.gesturesList:
                         if gesture.name == cycle.name:
                             gesture.stripRef.mute = True
+
             # Apply animation mode and shapekeys
             # Check if the animations mode was changed and updates it
             eva.changeMode()
             # Apply queued shapekeys
             eva.applyShapeKeys()
+
             # force update
             bpy.data.scenes['Scene'].frame_set(1)
 

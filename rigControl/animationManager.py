@@ -27,8 +27,9 @@ class AnimationManager():
         logger.info('Starting AnimationManager singleton')
         # Loading Relationship between the faceshift and Sophia relation from the JSON file.
         logger.info('Starting AnimationManager singleton')
-        # Gesture params
+        # Gesture and Arm animation params
         self.gesturesList = []
+        self.armAnimationsList = []
         self.emotionsList = []
         self.visemesList = []
         self.cyclesSet = set()
@@ -40,11 +41,11 @@ class AnimationManager():
         self.deleted_drivers = False
         # Shapekeys to apply on next frame
         self.shapeKeys = {}
+        # start sitting
+        self.armsAnimationMode = 0
 
 
         # Start default cycles
-        # These are the autonomous behaviors - breathing, blinking,
-        # saccades, head drift.
         self.setCycle('CYC-normal', rate=1.0, magnitude=1.0, ease_in=0.0)
         self.setCycle('CYC-breathing', rate=1.0, magnitude=1.0, ease_in=0.0)
         self.setCycle('CYC-normal-saccades', rate=1.0, magnitude=1.0, ease_in=0.0)
@@ -87,9 +88,30 @@ class AnimationManager():
         self.eyes_gazing = 0
         # Maximum time for eyes to be controlled by gaze. After that time eyes will be controlled by face target.
         self.max_eye_gaze = 0.2
+        self.arms_enabled = False
         # global access
         self.deformObj = bpy.data.objects['deform']
+        # For easier transitions arms are not required in the blender
+        # model, so its compatable with all blender files
+        if 'SKELE' in bpy.data.objects:
+            self.skeleton = bpy.data.objects['SKELE']
+            self.armbones = bpy.data.objects['SKELE'].pose.bones
+            self.skeleton.animation_data_create()
+            self.arms_enabled = True
+            # Create NLA tracks to group the arm animations
+            # the 'REPLACE' track will have lower priority than ADD so 'ADD' animations will be prioritized
+            self.arms_replace_tracks = self.skeleton.animation_data.nla_tracks.new()
+            self.arms_replace_tracks.name = 'REPLACE'
+            self.arms_add_tracks = self.skeleton.animation_data.nla_tracks.new()
+            self.arms_add_tracks.name = 'ADD'
+        else:
+            self.skeleton = None
+            self.armsAnimationMode = []
+
         self.bones = bpy.data.objects['control'].pose.bones
+
+
+
 
         # Camera location. See issue #25 in github.
         # Basic assumptions:
@@ -128,6 +150,10 @@ class AnimationManager():
             if not attr.startswith('_'):
                 string += str(attr) + ": " + str(value) + "\n"
         return string
+
+    def setArmsMode(self,mode):
+        self.armsAnimationMode = mode
+        return 0
 
     def setMode(self,mode):
         self.mode = mode
@@ -207,7 +233,7 @@ class AnimationManager():
 
         for key in dict_shape:
             if(key=='lip-JAW.DN'):
-                bpy.evaAnimationManager.deformObj.pose.bones['chin'].location[2]= dict_shape[key]
+                 bpy.data.shape_keys['ShapeKeys'].key_blocks[key].value= dict_shape[key]*7.0
             else:
                 bpy.data.shape_keys['ShapeKeys'].key_blocks[key].value= dict_shape[key]
 
@@ -269,6 +295,72 @@ class AnimationManager():
         self.deformObj.animation_data.nla_tracks.remove(gesture.trackRef)
 
 
+    def newArmAnimation(self, name, repeat = 1, speed=1, magnitude=0.5, priority=1):
+        '''Perform a new arm animation.'''
+        fail = False
+        try:
+            actionDatablock = bpy.data.actions[name]
+        except KeyError:
+            fail = True
+
+        if fail:
+            raise TypeError('Arm animation \"' + name + '\" is not known')
+            return
+
+        # Check value for sanity
+        checkValue(repeat, 1, 1000)
+        checkValue(speed, 0.1, 10)
+        checkValue(magnitude, 0, 1)
+        checkValue(priority, 0, 1)
+
+        # TBD, naming for different animation types
+        blend_type = 'ADD'
+        if '-MAIN-' in name:
+            blend_type = 'REPLACE'
+        # Create NLA track
+        if blend_type == 'REPLACE':
+            #newTrack = self.arms_replace_tracks
+            newTrack = self.skeleton.animation_data.nla_tracks.new(prev=self.arms_replace_tracks)
+        else:
+            newTrack = self.skeleton.animation_data.nla_tracks.new(prev=self.arms_add_tracks)
+        newTrack.name = name
+
+        # Create strip
+        newStrip = newTrack.strips.new(name=name, start=1, action=actionDatablock)
+        duration = (newStrip.frame_end - newStrip.frame_start)
+        newStrip.blend_type = blend_type
+        newStrip.use_animated_time = True
+        newStrip.influence = magnitude
+
+        # setup strip time
+        f = newStrip.fcurves.items()[0][1]
+        strip_time_kfp = f.keyframe_points.insert(1,0,{'FAST'})
+
+        if magnitude < 1:
+           newStrip.use_animated_influence = True
+           newStrip.influence = magnitude
+           ifc = newStrip.fcurves.items()[1][1]
+           ifc.keyframe_points.insert(1, magnitude, {'FAST'})
+
+        # Create object and add to list
+        a = ArmAnimation(name, newTrack, newStrip, duration=duration, speed=speed / 2.0, \
+                        magnitude=magnitude, priority=priority, repeat=repeat, strip_time_kfp=strip_time_kfp,
+                        blend_type=blend_type)
+        self.armAnimationsList.append(a)
+
+
+    def _deleteArmAnimation(self, armanimation):
+        ''' internal use only, stops and deletes an arm animation'''
+        # remove from list
+        self.armAnimationsList.remove(armanimation)
+
+        # remove from Blender
+        if armanimation.trackRef != self.arms_replace_tracks:
+            self.skeleton.animation_data.nla_tracks.remove(armanimation.trackRef)
+        else:
+            self.arms_replace_tracks.strips.remove(armanimation.stripRef)
+
+
     def setEmotion(self, emotionDict):
         '''Set the emotional state of the character.'''
         for emotionName, data in emotionDict.items():
@@ -318,7 +410,6 @@ class AnimationManager():
                              (0, Pipes.linear(fade)), (1, Pipes.moving_average(0.2))])
                         emotion.magnitude = num
 
-
     def setEmotionValue(self, emotionDict):
         '''Set the emotional state of the character directly.'''
         for emotionName, data in emotionDict.items():
@@ -327,8 +418,7 @@ class AnimationManager():
                 control['intensity'] = data['magnitude']
             except KeyError:
                 logger.error('Cannot set emotion. No bone with name {}'.format(emotionName))
-                 continue
-
+                continue
 
     def newViseme(self, vis, duration=0.5, rampInRatio=0.1, rampOutRatio=0.8, startTime=0):
         '''Perform a new viseme'''
@@ -382,6 +472,9 @@ class AnimationManager():
             toRemove = [gesture for gesture in self.gesturesList if gesture.name == c]
             for gesture in toRemove:
                 self._deleteGesture(gesture)
+            toRemove = [armanimation for armanimation in self.armAnimationsList if armanimation.name == c]
+            for armanimation in toRemove:
+                self._deleteArmAnimation(armanimation)
             self.cyclesToRemove.remove(c)
 
     def setCycle(self, name, rate, magnitude, ease_in):
@@ -515,10 +608,14 @@ class AnimationManager():
         # remove all leftover gestures
         for gesture in self.gesturesList:
             self.deformObj.animation_data.nla_tracks.remove(gesture.trackRef)
+        # remove all leftover arm animations
+        for armanimation in self.armAnimationsList:
+            self.skeleton.animation_data.nla_tracks.remove(armanimation.trackRef)
 
         self.gesturesList = []
+        self.armAnimationsList = []
 
-        # reset pose
+        # reset face and arms pose
         bpy.context.scene.objects.active = self.deformObj
         try:
             bpy.ops.pose.transforms_clear()
@@ -565,6 +662,23 @@ class Gesture():
         self.stripRef = strip
 
         self.strip_time_kfp = strip_time_kfp
+
+class ArmAnimation():
+    '''Represents an arm animation'''
+    def __init__(self, name, track, strip, duration, speed, magnitude, priority, repeat, strip_time_kfp, blend_type):
+        self.name = name
+        self.duration = duration
+        self.magnitude = magnitude
+        self.speed = speed
+        self.priority = priority
+        self.repeat = repeat
+
+        self.trackRef = track
+        self.stripRef = strip
+
+        self.strip_time_kfp = strip_time_kfp
+
+        self.blend_type = blend_type
 
 class Viseme():
     '''Represents a Viseme'''
