@@ -9,6 +9,10 @@ you need the rest of the system, starting with the ROS node for this
 model, which can be found in the 
 [blender_api_msgs](https://github.com/hansonrobotics/blender_api_msgs) repo.
 
+![Eva Splash 1](docs/thumbnails/Eva-1-small.png) ![Eva Splash 2](docs/thumbnails/Eva-2-small.png) ![Eva Splash 3](docs/thumbnails/Eva-3-small.png)
+
+[More pretty pictures here](docs/eva2.md).
+
 The ROS node is automatically started when the blender file is loaded.
 
 The `rigControl` python module contains scripts to drive the model, as
@@ -46,6 +50,10 @@ the [Sophia cookbook](https://github.com/hansonrobotics/blender_api_msgs/blob/ma
   breathing, blinking and eye movement.
 
 All animation sequences and 3D data are stored in the Blender file.
+
+# Status
+See the blender modernization work  describes in the
+[graphics improvement project](docs/eva2.md).
 
 # Copyright
 
