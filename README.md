@@ -9,6 +9,9 @@ you need the rest of the system, starting with the ROS node for this
 model, which can be found in the 
 [blender_api_msgs](https://github.com/hansonrobotics/blender_api_msgs) repo.
 
+Ther are [docker files that build a complete running system](https://github.com/opencog/docker/tree/master/indigo)
+that sees you (via webcam) and that you can interat with.
+
 ![Eva Splash 1](docs/thumbnails/Eva-1-small.png) ![Eva Splash 2](docs/thumbnails/Eva-2-small.png) ![Eva Splash 3](docs/thumbnails/Eva-3-small.png)
 
 [More pretty pictures here](docs/eva2.md).
