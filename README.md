@@ -1,15 +1,21 @@
 # Sophia Blender Animation API
 
-This repository contains an animated model of the Sophia head, as a
-Blender file, as well as a Robot Operating System (ROS) node to control
-the model. The ROS node is automatically started when the blender
-file is loaded.
+This repository contains an animated model of the Sophia robot head, as a
+[Blender file](https://www.blender.org/). This model is used to generate
+motor movement commands for the physical robot, as well as to allow a
+virtual display of the robot to be controlled (i.e. to look at it,
+using blender).  To interact with it (either the real or the virtual robot)
+you need the rest of the system, starting with the ROS node for this
+model, which can be found in the 
+[blender_api_msgs](https://github.com/hansonrobotics/blender_api_msgs) repo.
 
-The rigControl python module contains scripts to drive the model, as
-well as defining a public programming API. The rosrig python module
-contains ROS node implementation. The rigAPI module defines an abstract
-base class for controlling the rig: the ROS node uses this API, and
-rigControl implements it.
+The ROS node is automatically started when the blender file is loaded.
+
+The `rigControl` python module contains scripts to drive the model, as
+well as defining a public programming API. The `rosrig` python module
+(no longer in this repo) contains ROS node implementation. The `rigAPI` 
+module defines an abstract base class for controlling the rig: the ROS 
+node uses this API, and `rigControl` implements it.
 
 # Running
 
@@ -41,7 +47,7 @@ the [Sophia cookbook](https://github.com/hansonrobotics/HEAD/blob/master/src/ble
 
 All animation sequences and 3D data are stored in the Blender file.
 
-# Copyright #
+# Copyright
 
 Copyright (c) 2014,2015,2016 Hanson Robotics
 
